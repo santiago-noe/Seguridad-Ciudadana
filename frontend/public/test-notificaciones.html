@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Notificaciones</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .button {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background: #ffb74d;
+        }
+        .notification {
+            background: linear-gradient(45deg, #ff9800 30%, #ffb74d 90%);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            color: black;
+            border-left: 5px solid #f44336;
+        }
+        .log {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔔 Test de Notificaciones para Administradores</h1>
+    
+    <button class="button" onclick="testEndpoints()">🧪 Probar Endpoints</button>
+    <button class="button" onclick="createTestIncident()">➕ Crear Incidencia de Prueba</button>
+    <button class="button" onclick="playNotificationSound()">🔊 Probar Sonido</button>
+    <button class="button" onclick="testBrowserNotification()">📢 Probar Notificación del Navegador</button>
+    <button class="button" onclick="checkUnseenIncidents()">👁️ Ver Incidencias No Vistas</button>
+    
+    <div class="log" id="log"></div>
+
+    <audio id="notificationSound" preload="auto" volume="0.7">
+        <source src="/notificacion.mp3" type="audio/mpeg">
+        Tu navegador no soporta audio.
+    </audio>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().then(() => {
+                log('✅ Sonido de notificación reproducido');
+            }).catch(e => {
+                log('❌ Error reproduciendo sonido: ' + e.message);
+            });
+        }
+
+        function testBrowserNotification() {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showNotification();
+                    } else {
+                        log('❌ Permisos de notificación denegados');
+                    }
+                });
+            } else if (Notification.permission === 'granted') {
+                showNotification();
+            } else {
+                log('❌ Permisos de notificación denegados');
+            }
+        }
+
+        function showNotification() {
+            new Notification('🆕 Nueva Incidencia Registrada', {
+                body: 'Se ha registrado una nueva incidencia de prueba',
+                icon: '/logo192.png'
+            });
+            log('✅ Notificación del navegador mostrada');
+        }
+
+        async function testEndpoints() {
+            log('🧪 Probando endpoints de notificaciones...');
+            
+            try {
+                // Test endpoint de incidencias no vistas
+                const response1 = await fetch('http://localhost:4000/api/incidentes/no-vistas');
+                const data1 = await response1.json();
+                log(`✅ Endpoint no-vistas: ${data1.count} incidencias no vistas`);
+                
+                // Test endpoint de incidencias recientes
+                const timestamp = new Date(Date.now() - 86400000).toISOString(); // Últimas 24 horas
+                const response2 = await fetch(`http://localhost:4000/api/incidentes/recientes/${timestamp}`);
+                const data2 = await response2.json();
+                log(`✅ Endpoint recientes: ${data2.count} incidencias recientes`);
+                
+            } catch (error) {
+                log('❌ Error probando endpoints: ' + error.message);
+            }
+        }
+
+        async function createTestIncident() {
+            log('➕ Creando incidencia de prueba...');
+            
+            const testData = {
+                usuario_id: 1,
+                tipo: 'Robo',
+                ubicacion: 'Av. Test 123',
+                descripcion: 'Incidencia de prueba para notificaciones',
+                fecha: new Date().toISOString().slice(0, 10),
+                prioridad: 'alta'
+            };
+
+            try {
+                const response = await fetch('http://localhost:4000/api/incidentes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    log('✅ Incidencia de prueba creada exitosamente');
+                    playNotificationSound();
+                    testBrowserNotification();
+                } else {
+                    log('❌ Error creando incidencia: ' + result.error);
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+            }
+        }
+
+        async function checkUnseenIncidents() {
+            log('👁️ Verificando incidencias no vistas...');
+            
+            try {
+                const response = await fetch('http://localhost:4000/api/incidentes/no-vistas');
+                const data = await response.json();
+                
+                if (data.success) {
+                    log(`📊 Total incidencias no vistas: ${data.count}`);
+                    data.incidencias.forEach((inc, index) => {
+                        log(`${index + 1}. ${inc.tipo} - ${inc.ubicacion} (ID: ${inc.id})`);
+                    });
+                } else {
+                    log('❌ Error obteniendo incidencias no vistas');
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+            }
+        }
+
+        // Inicializar
+        log('🚀 Sistema de prueba de notificaciones iniciado');
+        log('📱 Presiona los botones para probar las funcionalidades');
+    </script>
+</body>
+</html>
